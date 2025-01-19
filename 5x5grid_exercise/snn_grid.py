@@ -4,7 +4,7 @@ import snntorch as snn
 from snntorch import spikegen
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, TensorDataset
-
+from sklearn.model_selection import train_test_split
 
 
 device = torch.device("mps") if torch.cuda.is_available() else torch.device("cpu")
@@ -18,7 +18,7 @@ def create_dataset():
 	grid = 5
 
 	for i in range(grid):
-		#		horizontal = torch.zeros(num_steps,grid, grid) # feeding 50 training samples of each 5 x 5 grid
+		#horizontal = torch.zeros(num_steps,grid, grid) # feeding 50 training samples of each 5 x 5 grid
 		horizontal = torch.zeros(grid, grid)
 		horizontal[i, :] = 1 #selected row is set to 1
 		inputs.append(horizontal)
@@ -83,16 +83,24 @@ net = Net().to(device)
 dtype = torch.float
 # creating dataset
 inputs, labels = create_dataset()
-dataset = TensorDataset(inputs, labels)
+train_input, test_input, train_label, test_label = train_test_split(inputs, labels, test_size=0.2, random_state=42)
 
-train = DataLoader(dataset, batch_size=16, shuffle=True)
+#print(inputs.shape, labels.shape)
+#print(train_input.shape, test_input.shape)
+
+train_dataset = TensorDataset(train_input, train_label)
+test_dataset = TensorDataset(test_input, test_label)
+
+train = DataLoader(train_dataset, batch_size=16, shuffle=True)
+test = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 loss = nn.CrossEntropyLoss() # calcualting error
 optimizer = torch.optim.Adam(net.parameters(), lr=5e-4, betas=(0.9, 0.999))
 
+
 num_epochs = 10
 counter = 0
-repeat = 50 # passing each sample 50 times for spike encoding
+repeat = 2# passing each sample 50 times for spike encoding
 
 for epoch in range(num_epochs):
 	print(f"Epoch {epoch + 1}/{num_epochs}")
@@ -103,7 +111,7 @@ for epoch in range(num_epochs):
 		data = data.to(device)
 		targets = targets.to(device)
 
-		for _ in range(repeat):
+		for _ in range(repeat): # spike encoding
 
 			#forward pass
 			net.train()
@@ -114,16 +122,45 @@ for epoch in range(num_epochs):
 			loss_val = torch.zeros((1), dtype=dtype, device=device)
 			loss_val += loss(spk_rec.sum(0), targets)
 
-
+	
 			#gradient calculation + weight update
 			optimizer.zero_grad()
 			loss_val.backward()
 			optimizer.step()
 
-
-		#print train.test loss/accruary
-		print(f"Iteration: {counter} \t Train loss: {loss_val.item()}")
-		counter += 1
+	
+			#print train.test loss/accruary
+			print(f"Iteration: {counter} \t Train loss: {loss_val.item()}")
+			counter += 1
 
 		if counter == 100:
 			break
+
+def measure_accuracy(model, dataloader):
+
+	with torch.no_grad():
+		model.eval()
+		running_length = 0
+		running_accuracy = 0
+
+		for data, targets in iter(dataloader):
+			data = data.to(device)
+			targets = targets.to(device)
+			
+			#forward pass
+			spk_rec, _ = model(data)
+			spike_count = spk_rec.sum(0) # batch x num_outputs
+			_, max_spike = spike_count.max(1)
+
+			#correct classes for one batcg
+			num_correct = (max_spike == targets).sum()
+
+			#total accuracy
+			running_length += len(targets)
+			running_accuracy += num_correct
+
+		accuracy = (running_accuracy / running_length)
+
+		return accuracy.item()
+
+print(f"Test set accuracy: {measure_accuracy(net, test)}")
