@@ -10,13 +10,11 @@ import matplotlib.pyplot as plt
 
 
 
-
-
 def create_dataset():
 
 	inputs = []
 	labels = []
-	num_comb = 20
+	num_comb = 50
 	grid = 5
 
 	for i in range(grid):
@@ -41,6 +39,7 @@ def create_dataset():
 #	return inputs, torch.tensor(labels)
 
 
+
 class Reservior:
 	def __init__(self, input_neurons,res_size, threshold, beta, mem_pot, spectral_radius, lr):
 		self.input_neurons = input_neurons # number of input neurons 
@@ -57,13 +56,13 @@ class Reservior:
 		self.spk = np.zeros(self.res_size)
 
 		#initalzing weights
-		self.W_in = np.random.randn(self.res_size, self.input_neurons)
-		self.W = np.random.randn(self.res_size, self.res_size)
-		self.W_out = np.random.randn(1, self.res_size)
+		self.W_in = np.random.rand(self.res_size, self.input_neurons)
+		self.W = np.random.rand(self.res_size, self.res_size)
+		self.W_out = np.random.rand(1, self.res_size)
 	
 		# altering res weights once with spectral radius
 		eigvals = np.linalg.eigvals(self.W)
-		self.W = self.W / np.max(eigvals) / self.spectral_radius
+		self.W = self.W / np.max(eigvals) * self.spectral_radius
 	
 
 	
@@ -91,7 +90,7 @@ class Reservior:
 
 # creating input / labels for training and testing
 inputs, labels = create_dataset()
-inputs = inputs.view(inputs.shape[0], -1)
+#inputs = inputs.view(inputs.shape[0], -1)
 
 train_input, test_input, train_label, test_label = train_test_split(inputs, labels, test_size=0.2, random_state=42)
 
@@ -104,13 +103,13 @@ train_input, test_input, train_label, test_label = train_test_split(inputs, labe
 
 
 # intalizing variables
-input_neurons = inputs.shape[1] #* inputs.shape[2]
+input_neurons = inputs.shape[1] * inputs.shape[2]
 res_size = 1000
 threshold = 1
-beta = 0.9
-mem_pot = 1
-spec_radius = 0.8
-lr = 5e-4
+beta = 0.7
+mem_pot = 0
+spec_radius = 0.5
+lr = 1e-4
 
 
 # = Reservior(input_neurons,res_size, threshold, beta, mem_pot, spec_radius, lr).to(device)
@@ -120,6 +119,8 @@ lr = 5e-4
 #creating reservior 
 res = Reservior(input_neurons,res_size, threshold, beta, mem_pot, spec_radius, lr)
 
+	
+
 # training 
 for i in range(train_input.shape[0]):
 	res.update(train_input[i])
@@ -128,12 +129,16 @@ for i in range(train_input.shape[0]):
 	print(f"errors: {errors.item()}")
 	train = res.train_output(errors)
 
+
+
 correct = 0
 for i in range(test_input.shape[0]):
 	res.update(test_input[i])
-	predict = round(res.predict()[0])
-	if predict == test_label[i].item():
+	predict = res.predict()[0] # extracts only value from np array
+	if round(predict) == test_label[i].item():
 		correct += 1
+
+
 
 accuracy = correct / test_input.shape[0]
 print(f"Test accuracy: {accuracy:.2%}")
