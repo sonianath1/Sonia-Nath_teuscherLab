@@ -19,19 +19,24 @@ def create_dataset():
 
 	for i in range(grid):
 		#horizontal = torch.zeros(num_steps,grid, grid) # feeding 50 training samples of each 5 x 5 grid
-		horizontal = torch.zeros(grid, grid)
-		horizontal[i, :] = 1 #selected row is set to 1
-		inputs.append(horizontal)
-		labels.append(0) # 0 for horizintal
+		for j in range(20):
+			horizontal = torch.zeros(grid, grid)
+			horizontal[i, :] = 1 #selected row is set to 1
+			inputs.append(horizontal)
+			labels.append(0) # 0 for horizintal
 
 	for i in range(grid):
-		vertical = torch.zeros(grid, grid)
-		vertical[:, i] = 1
-		inputs.append(vertical)
-		labels.append(1) # 1 for vertical
+		for j in range(20):
+			vertical = torch.zeros(grid, grid)
+			vertical[:, i] = 1
+			inputs.append(vertical)
+			labels.append(1) # 1 for vertical
 	
-	# torch.stack(inputs) turns into (10, 5, 5)
+	# torch.stack(inputs) turns into (200, 5, 5)
 	return torch.stack(inputs), torch.tensor(labels)
+
+
+
 
 
 num_inputs = 5*5
@@ -79,11 +84,17 @@ class Net(nn.Module):
 
 
 
+device = torch.device("mps") if torch.cuda.is_available() else torch.device("cpu")
+
+
+
+
 net = Net().to(device)
 dtype = torch.float
 # creating dataset
 inputs, labels = create_dataset()
 train_input, test_input, train_label, test_label = train_test_split(inputs, labels, test_size=0.2, random_state=42)
+
 
 #print(inputs.shape, labels.shape)
 #print(train_input.shape, test_input.shape)
@@ -120,6 +131,9 @@ for epoch in range(num_epochs):
 
 			#initalize the loss and sum over time
 			loss_val = torch.zeros((1), dtype=dtype, device=device)
+#			print(f"spike dimenson: {spk_rec.sum(0)}")
+#			print(f"targets dimension: {targets}")
+#			print(f"spk_rec shape: {spk_rec.shape}, spk rec sum(0).shape: {spk_rec.sum(0).shape}")
 			loss_val += loss(spk_rec.sum(0), targets)
 
 	
