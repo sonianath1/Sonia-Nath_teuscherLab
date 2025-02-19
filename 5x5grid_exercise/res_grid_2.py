@@ -95,7 +95,8 @@ class Reservior:
 				error_list.append(total_error / length)
 
 				# updating output weights
-				self.W_out += self.lr * error * spk.reshape(1, -1)
+				self.W_out += self.lr * np.outer(error, spk)
+				#self.W_out += self.lr * error * spk.reshape(1, -1)
 			
 			#computing average error 
 			avg = total_error / len(inputs)
