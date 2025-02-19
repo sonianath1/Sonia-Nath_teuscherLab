@@ -1,48 +1,34 @@
-import torch
-import torch.nn as nn
-import snntorch as snn
-from snntorch import spikegen
 import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 
 def create_dataset():
 
 	inputs = []
 	labels = []
-	num_comb = 50
-	grid = 5
-
-	for i in range(grid):
-		for j in range(num_comb): # creating 20 samples of each combination
-		#horizontal = torch.zeros(num_steps,grid, grid) # feeding 50 training samples of each 5 x 5 grid
-			horizontal = torch.zeros(grid, grid)
-			horizontal[i, :] = 1 #selected row is set to 1
-			inputs.append(horizontal)
-			labels.append(0) # 0 for horizintal
-
-	for i in range(grid):
-		for j in range(num_comb): # creating 20 samples of each combination
-			vertical = torch.zeros(grid, grid)
-			vertical[:, i] = 1
-			inputs.append(vertical)
-			labels.append(1) # 1 for vertical	
-
-#	print(f"Inputs: {inputs}")
-#	print(f"Inputs torch stack: {torch.stack(inputs)}")
-	# torch.stack(inputs) turns into (10, 5, 5)
-	return torch.stack(inputs), torch.tensor(labels)
-#	return inputs, torch.tensor(labels)
+	num_comb = 1000
+	grid_size = 5
+	
+	for _ in range(num_comb):
+		grid = np.zeros((grid_size, grid_size))
+		if np.random.rand() < 0.5:
+			row = np.random.randint(0, grid_size)
+			grid[row, :] = 1
+			labels.append(1)
+		else:
+			col = np.random.randint(0, grid_size)
+			grid[:, col] = 1
+			labels.append(0)
+		inputs.append(grid)
+	
+	return np.array(inputs), np.array(labels)
 
 
 
 class Reservior:
 	def __init__(self, input_neurons,res_size, threshold, beta, mem_pot, spectral_radius, lr):
-		self.input_neurons = input_neurons # number of input neurons 
+		self.input_neurons = input_neurons # number of input neurons
 		self.res_size = res_size # reservior size
 		self.threshold = threshold # treshold
 		self.beta = beta # leak rate
@@ -50,95 +36,121 @@ class Reservior:
 		self.spectral_radius = spectral_radius
 		self.lr = lr # leanring rate
 		
-		
-		#initalzing state and spike 
-		self.res_state = np.zeros(self.res_size)
-		self.spk = np.zeros(self.res_size)
-
 		#initalzing weights
-		self.W_in = np.random.rand(self.res_size, self.input_neurons)
-		self.W = np.random.rand(self.res_size, self.res_size)
-		self.W_out = np.random.rand(1, self.res_size)
-	
-		# altering res weights once with spectral radius
+		self.W_in = np.random.randn(res_size, input_neurons)
+		self.W = np.random.randn(res_size, res_size)
+		self.W_out = np.random.randn(1, res_size)
+		
+		# scaling res weights by spec radius 
 		eigvals = np.linalg.eigvals(self.W)
-		self.W = self.W / np.max(eigvals) * self.spectral_radius
-	
+		self.W = self.W / np.max(np.abs(eigvals)) * spectral_radius
 
-	
+		# intialzie res state 
+		self.res_state = np.zeros(res_size)
+
+#		print(f"Input weights: {self.W_in}")
+#		print(f"Res weights: {self.W}")
+#		print(f"Output weights: {self.W_out}")
+
+
 	def update(self, inputs):
-		total_input = np.dot(self.W, self.spk) + np.dot(self.W_in,inputs.flatten())
+		total_input = np.dot(self.W, self.res_state) + np.dot(self.W_in,inputs.flatten())
 		self.res_state = (1 - self.beta) * self.res_state + total_input
-		self.spk = self.res_state > self.threshold
-		self.res_state[self.spk] = self.mem_pot
+		
+
+		#spikes 
+		spk = self.res_state > self.threshold
+		self.res_state[spk] = self.mem_pot # return to membrane potential 
+
 #		print(f"spk shape: {self.spk.shape}")
+		return spk
 
-	def predict(self):
-		return np.dot(self.W_out, self.spk)
+	def predict(self, spk):
+		x = np.dot(self.W_out, spk)
+		return 1/ (1 + np.exp(-x)) # applying sigmoid
+#		return x
 
-	def error(self, targets):
-		return targets - self.predict()
-#		return 1 / (1 + np.exp(-x)) # applying sigmoid function
+#	def error(self, targets):
+		#return targets - self.predict()
 
 
+	def train_output(self, inputs, labels, error_list):
+		epochs = 100
+		error_list = []
 
-	def train_output(self, error):
-#		print(f"error shape: {error.shape}, sike shape: {self.spk.shape}")
-		self.W_out += self.lr * np.outer(error, self.spk)
+		for epoch in range(epochs):
+			total_error = 0
+			length = len(inputs)
+			for i in range(length):
+				
+				#getting spikes 
+				spk = self.update(inputs[i])
+				
+				#output
+				output = self.predict(spk)
+				
+				# error computation
+				error = labels[i] - output 
+				total_error += np.abs(error)
+				error_list.append(total_error / length)
 
+				# updating output weights
+				self.W_out += self.lr * error * spk.reshape(1, -1)
+			
+			#computing average error 
+			avg = total_error / len(inputs)
+			print(f"Epoch {epoch + 1} / {epochs}, Error: {avg.item():.4}")
+		
+		return error_list
 
 
 # creating input / labels for training and testing
 inputs, labels = create_dataset()
-#inputs = inputs.view(inputs.shape[0], -1)
-
-train_input, test_input, train_label, test_label = train_test_split(inputs, labels, test_size=0.2, random_state=42)
 
 
-#train_dataset = TensorDataset(train_input, train_label)
-#test_dataset = TensorDataset(test_input, test_label)
-
-#train = DataLoader(train_dataset, batch_size=16, shuffle=True)
-#test = DataLoader(test_dataset, batch_size=16, shuffle=False)
+#splitting data 800 (80%) for train 200 (20%) for test
+train_inputs, test_inputs = inputs[:800], inputs[800:]
+train_labels, test_labels = labels[:800], labels[800:]
 
 
-# intalizing variables
-input_neurons = inputs.shape[1] * inputs.shape[2]
+# initalize reserverior
+input_size = 5*5
 res_size = 1000
 threshold = 1
-beta = 0.7
-mem_pot = 0
-spec_radius = 0.5
-lr = 1e-4
+beta = 0.9
+mem_pot = 0 
+spectral_radius = 1.2
+lr = 0.01
+res = Reservior(input_size, res_size, threshold, beta, mem_pot, spectral_radius, lr)
+error = []
 
+#train
+error = res.train_output(train_inputs, train_labels, error)
 
-# = Reservior(input_neurons,res_size, threshold, beta, mem_pot, spec_radius, lr).to(device)
-
-
-
-#creating reservior 
-res = Reservior(input_neurons,res_size, threshold, beta, mem_pot, spec_radius, lr)
-
-	
-
-# training 
-for i in range(train_input.shape[0]):
-	res.update(train_input[i])
-	errors = res.error(train_label[i])
-	print(f"Epoch {i + 1}/{train_input.shape[0]}")
-	print(f"errors: {errors.item()}")
-	train = res.train_output(errors)
-
-
-
+#test
 correct = 0
-for i in range(test_input.shape[0]):
-	res.update(test_input[i])
-	predict = res.predict()[0] # extracts only value from np array
-	if round(predict) == test_label[i].item():
+for i in range(len(test_inputs)):
+	spk = res.update(test_inputs[i])
+	output = res.predict(spk)
+	if output >= 0.5:
+		prediction = 1
+	else:
+		prediction = 0
+	
+	if prediction == test_labels[i]:
 		correct += 1
+	
+accuracy = correct / len(test_inputs)
+print(f"Accuracy: {accuracy* 100:.2f}")
 
 
-
-accuracy = correct / test_input.shape[0]
-print(f"Test accuracy: {accuracy:.2%}")
+# Plot training error over epochs
+plt.figure(figsize=(5, 5))
+plt.plot(error, label="Training Error", linestyle='-', marker='o')
+#plt.plot(test_errors, label="Testing Error", linestyle='-', marker='o')
+plt.xlabel("Epoch")
+plt.ylabel("Error Rate")
+plt.title("Training & Test Error Over Time")
+plt.legend()
+plt.grid(True)
+plt.show()
