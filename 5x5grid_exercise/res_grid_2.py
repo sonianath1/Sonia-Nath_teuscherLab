@@ -96,7 +96,6 @@ class Reservior:
 
 				# updating output weights
 				self.W_out += self.lr * np.outer(error, spk)
-				#self.W_out += self.lr * error * spk.reshape(1, -1)
 			
 			#computing average error 
 			avg = total_error / len(inputs)
@@ -137,7 +136,8 @@ for i in range(len(test_inputs)):
 		prediction = 1
 	else:
 		prediction = 0
-	
+
+	print(f"Prediction: {prediction}, Actual: {test_labels[i]}")
 	if prediction == test_labels[i]:
 		correct += 1
 	
