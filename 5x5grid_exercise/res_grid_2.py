@@ -1,7 +1,13 @@
+# Sonia Nath - Teuscher Lab 
+
+# Spiking Reservior made to solve simple classification
+#problem of 5 x 5 grid. Guessing either horizontal line or 
+# vertical line.
+
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.pyplot as plt
-
+import optuna
 
 def create_dataset():
 
@@ -35,11 +41,17 @@ class Reservior:
 		self.mem_pot = mem_pot # inital membrane potential
 		self.spectral_radius = spectral_radius
 		self.lr = lr # leanring rate
-		
+
+
+		sparse = 0.2
+
 		#initalzing weights
 		self.W_in = np.random.randn(res_size, input_neurons)
 		self.W = np.random.randn(res_size, res_size)
 		self.W_out = np.random.randn(1, res_size)
+	
+		self.W_in *= (np.random.rand(res_size, input_neurons) < sparse)
+		self.W *= (np.random.rand(res_size, res_size) < sparse)
 		
 		# scaling res weights by spec radius 
 		eigvals = np.linalg.eigvals(self.W)
@@ -98,14 +110,38 @@ class Reservior:
 				self.W_out += self.lr * np.outer(error, spk)
 			
 			#computing average error 
-			avg = total_error / len(inputs)
+			avg = total_error / length
 			print(f"Epoch {epoch + 1} / {epochs}, Error: {avg.item():.4}")
 		
 		return error_list
 
 
-# creating input / labels for training and testing
+#using optuna to find best parameters
+#def objective(trial):
+#res_size = trial.suggest_int("res_size", 500, 2000)
+#threshold = trial.suggest_float("threshold", 0.5, 2.0)
+#beta = trial.suggest_float("beta", 0.8, 1.0)
+#spectral_radius = trial.suggest_float("spectral_radius", 0.8, 1.5)
+#lr = trial.suggest_float("lr", 0.0001, 0.1, log=True)
+
+#Best is trial 21 with value: 1.0.
+#Best Parameters: {'res_size': 1188, 'threshold': 1.0393349533404501, 'beta': 0.8790635677507052, 'spectral_radius': 0.8008810010820975, 'lr': 0.05359473671289511}
+
+# initalize reserverior
+input_size = 5*5
+res_size = 1188
+threshold = 1.0393349533404501
+beta = 0.8790635677507052
+mem_pot = 0 
+spectral_radius = 0.8008810010820975
+lr = 0.05359473671289511
+error = []
+
+
+
 inputs, labels = create_dataset()
+ 
+res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, lr)
 
 
 #splitting data 800 (80%) for train 200 (20%) for test
@@ -113,22 +149,14 @@ train_inputs, test_inputs = inputs[:800], inputs[800:]
 train_labels, test_labels = labels[:800], labels[800:]
 
 
-# initalize reserverior
-input_size = 5*5
-res_size = 1000
-threshold = 1
-beta = 0.9
-mem_pot = 0 
-spectral_radius = 1.2
-lr = 0.01
-res = Reservior(input_size, res_size, threshold, beta, mem_pot, spectral_radius, lr)
-error = []
+
 
 #train
 error = res.train_output(train_inputs, train_labels, error)
 
 #test
 correct = 0
+
 for i in range(len(test_inputs)):
 	spk = res.update(test_inputs[i])
 	output = res.predict(spk)
@@ -136,13 +164,20 @@ for i in range(len(test_inputs)):
 		prediction = 1
 	else:
 		prediction = 0
-
-	print(f"Prediction: {prediction}, Actual: {test_labels[i]}")
+	print(f"Prediction: {prediction}, Actual: {test_labels[i]}")	
 	if prediction == test_labels[i]:
 		correct += 1
-	
+
+
+
 accuracy = correct / len(test_inputs)
 print(f"Accuracy: {accuracy* 100:.2f}")
+#return accuracy
+
+#study = optuna.create_study(direction="maximize")  # We negate accuracy, so we minimize
+#study.optimize(objective, n_trials=50)
+#print("Best Parameters:", study.best_params)
+#print("Best Accuracy:", study.best_value) 
 
 
 # Plot training error over epochs
