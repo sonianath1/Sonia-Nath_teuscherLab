@@ -4,7 +4,6 @@
 #problem of 5 x 5 grid. Guessing either horizontal line or 
 # vertical line.
 
-import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.pyplot as plt
 import optuna
@@ -16,6 +15,7 @@ def create_dataset():
 	num_comb = 1000
 	grid_size = 5
 	
+
 	for _ in range(num_comb):
 		grid = np.zeros((grid_size, grid_size))
 		if np.random.rand() < 0.5:
@@ -65,6 +65,25 @@ class Reservior:
 #		print(f"Output weights: {self.W_out}")
 
 
+
+	def STDP_update(self, pre_syn, post_syn):
+		A_plus = 0.1 # potentation rate
+		A_minus = 0.1 # depression rate
+		delta_t = pre_syn - post_syn # confused on
+		
+		# determine the ranges of pre-to-postsynaptic interspike intervals over which synaptic strengthening or weakening occurs
+		T_plus = 10 
+		T_minus = 10 
+		
+		# self.W += A_plus * (np.exp(delta_t) / T_plus) # LTP
+		# self.W += -A_minus * (np.exp(delta_t) / T_minus) # LTD
+
+		# if pre syn preceeds post syn spike then weights are strengthed (LTP)
+		# if post syn preceeds pre syn spike then weights are weakened (LTD)
+
+
+
+
 	def update(self, inputs):
 		total_input = np.dot(self.W, self.res_state) + np.dot(self.W_in,inputs.flatten())
 		self.res_state = (1 - self.beta) * self.res_state + total_input
@@ -87,7 +106,7 @@ class Reservior:
 
 
 	def train_output(self, inputs, labels, error_list):
-		epochs = 100
+		epochs = 60
 		error_list = []
 
 		for epoch in range(epochs):
@@ -104,10 +123,13 @@ class Reservior:
 				# error computation
 				error = labels[i] - output 
 				total_error += np.abs(error)
-				error_list.append(total_error / length)
-
+				#error_list.append(total_error / length)
+				
 				# updating output weights
 				self.W_out += self.lr * np.outer(error, spk)
+			
+
+			error_list.append(total_error / length)
 			
 			#computing average error 
 			avg = total_error / length
@@ -160,7 +182,7 @@ correct = 0
 for i in range(len(test_inputs)):
 	spk = res.update(test_inputs[i])
 	output = res.predict(spk)
-	if output >= 0.5:
+	if output > 0.5:
 		prediction = 1
 	else:
 		prediction = 0
@@ -181,10 +203,10 @@ print(f"Accuracy: {accuracy* 100:.2f}")
 
 # Plot training error over epochs
 plt.figure(figsize=(5, 5))
-plt.plot(error, label="Training Error", linestyle='-', marker='o')
+plt.plot(error, label="Training Loss", linestyle='-', marker='o')
 plt.xlabel("Epoch")
-plt.ylabel("Error Rate")
-plt.title("Training & Test Error Over Time")
+plt.ylabel("Loss")
+plt.title("Training Loss Over Time")
 plt.legend()
 plt.grid(True)
 plt.show()
