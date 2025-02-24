@@ -172,7 +172,6 @@ for i in range(len(test_inputs)):
 
 accuracy = correct / len(test_inputs)
 print(f"Accuracy: {accuracy* 100:.2f}")
-#return accuracy
 
 #study = optuna.create_study(direction="maximize")  # We negate accuracy, so we minimize
 #study.optimize(objective, n_trials=50)
@@ -183,7 +182,6 @@ print(f"Accuracy: {accuracy* 100:.2f}")
 # Plot training error over epochs
 plt.figure(figsize=(5, 5))
 plt.plot(error, label="Training Error", linestyle='-', marker='o')
-#plt.plot(test_errors, label="Testing Error", linestyle='-', marker='o')
 plt.xlabel("Epoch")
 plt.ylabel("Error Rate")
 plt.title("Training & Test Error Over Time")
