@@ -84,10 +84,6 @@ class Net(nn.Module):
 
 
 
-device = torch.device("mps") if torch.cuda.is_available() else torch.device("cpu")
-
-
-
 
 net = Net().to(device)
 dtype = torch.float
@@ -109,9 +105,11 @@ loss = nn.CrossEntropyLoss() # calcualting error
 optimizer = torch.optim.Adam(net.parameters(), lr=5e-4, betas=(0.9, 0.999))
 
 
-num_epochs = 10
+num_epochs = 30
 counter = 0
-repeat = 2# passing each sample 50 times for spike encoding
+repeat = 1# passing each sample 50 times for spike encoding
+error_list = []
+spk = []
 
 for epoch in range(num_epochs):
 	print(f"Epoch {epoch + 1}/{num_epochs}")
@@ -122,33 +120,37 @@ for epoch in range(num_epochs):
 		data = data.to(device)
 		targets = targets.to(device)
 
-		for _ in range(repeat): # spike encoding
+	#	for _ in range(repeat): # spike encoding
 
 			#forward pass
-			net.train()
-			spk_rec, _ = net(data)
+		net.train()
+		spk_rec, _ = net(data)
 
-
+			
 			#initalize the loss and sum over time
-			loss_val = torch.zeros((1), dtype=dtype, device=device)
+		loss_val = torch.zeros((1), dtype=dtype, device=device)
 #			print(f"spike dimenson: {spk_rec.sum(0)}")
 #			print(f"targets dimension: {targets}")
 #			print(f"spk_rec shape: {spk_rec.shape}, spk rec sum(0).shape: {spk_rec.sum(0).shape}")
-			loss_val += loss(spk_rec.sum(0), targets)
-
+		loss_val += loss(spk_rec.sum(0), targets)
 	
 			#gradient calculation + weight update
-			optimizer.zero_grad()
-			loss_val.backward()
-			optimizer.step()
+		optimizer.zero_grad()
+		loss_val.backward()
+		optimizer.step()
 
+		error_list.append(loss_val.item())
 	
 			#print train.test loss/accruary
-			print(f"Iteration: {counter} \t Train loss: {loss_val.item()}")
-			counter += 1
+		print(f"Iteration: {counter} \t Train loss: {loss_val.item()}")
+		counter += 1
 
 		if counter == 100:
 			break
+
+
+
+
 
 def measure_accuracy(model, dataloader):
 
@@ -175,6 +177,17 @@ def measure_accuracy(model, dataloader):
 
 		accuracy = (running_accuracy / running_length)
 
-		return accuracy.item()
+		return accuracy.item() * 100
 
 print(f"Test set accuracy: {measure_accuracy(net, test)}")
+
+
+
+
+# Plot the error over time
+plt.plot(error_list, label="Training Loss")
+plt.xlabel("Iteration")
+plt.ylabel("Loss")
+plt.title("Training Loss Over Time")
+plt.legend()
+plt.show()
