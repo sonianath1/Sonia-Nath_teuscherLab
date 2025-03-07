@@ -14,7 +14,7 @@ def create_dataset():
 	labels = []
 	num_comb = 1000
 	grid_size = 5
-	
+	noise = 0.1
 
 	for _ in range(num_comb):
 		grid = np.zeros((grid_size, grid_size))
@@ -26,8 +26,14 @@ def create_dataset():
 			col = np.random.randint(0, grid_size)
 			grid[:, col] = 1
 			labels.append(0)
+
+		# adding noise
+		flip_bits = np.random.rand(grid_size, grid_size) < noise
+		grid[flip_bits] = 1 - grid[flip_bits]
+
 		inputs.append(grid)
 	
+	print(f"torch.stack(inputs): {np.array(inputs).shape}")
 	return np.array(inputs), np.array(labels)
 
 
@@ -41,14 +47,14 @@ class Reservior:
 		self.mem_pot = mem_pot # inital membrane potential
 		self.spectral_radius = spectral_radius
 		self.lr = lr # leanring rate
-
+		
 
 		sparse = 0.2
 
 		#initalzing weights
-		self.W_in = np.random.randn(res_size, input_neurons)
-		self.W = np.random.randn(res_size, res_size)
-		self.W_out = np.random.randn(1, res_size)
+		self.W_in = np.random.rand(res_size, input_neurons)
+		self.W = np.random.rand(res_size, res_size)
+		self.W_out = np.random.rand(1, res_size)
 	
 		self.W_in *= (np.random.rand(res_size, input_neurons) < sparse)
 		self.W *= (np.random.rand(res_size, res_size) < sparse)
@@ -59,6 +65,7 @@ class Reservior:
 
 		# intialzie res state 
 		self.res_state = np.zeros(res_size)
+		self.spk = np.zeros(res_size)
 
 #		print(f"Input weights: {self.W_in}")
 #		print(f"Res weights: {self.W}")
@@ -85,28 +92,31 @@ class Reservior:
 
 
 	def update(self, inputs):
-		total_input = np.dot(self.W, self.res_state) + np.dot(self.W_in,inputs.flatten())
+		total_input = np.dot(self.W, self.spk) + np.dot(self.W_in,inputs.flatten())
 		self.res_state = (1 - self.beta) * self.res_state + total_input
 		
 
 		#spikes 
-		spk = self.res_state > self.threshold
-		self.res_state[spk] = self.mem_pot # return to membrane potential 
+		self.spk = self.res_state > self.threshold
+		self.res_state[self.spk] = self.mem_pot # return to membrane potential 
 
-#		print(f"spk shape: {self.spk.shape}")
-		return spk
+		return self.spk
 
-	def predict(self, spk):
-		x = np.dot(self.W_out, spk)
+	def predict(self):
+		x = np.dot(self.W_out, self.spk)
 		return 1/ (1 + np.exp(-x)) # applying sigmoid
 #		return x
 
 #	def error(self, targets):
 		#return targets - self.predict()
 
+	def update_output(self):
+		# updating output weights
+		self.W_out += self.lr * np.outer(error, self.spk)
+			
 
 	def train_output(self, inputs, labels, error_list):
-		epochs = 60
+		epochs = 100
 		error_list = []
 
 		for epoch in range(epochs):
@@ -115,19 +125,16 @@ class Reservior:
 			for i in range(length):
 				
 				#getting spikes 
-				spk = self.update(inputs[i])
+				self.spk = self.update(inputs[i])
 				
 				#output
-				output = self.predict(spk)
+				output = self.predict()
 				
 				# error computation
 				error = labels[i] - output 
 				total_error += np.abs(error)
-				#error_list.append(total_error / length)
 				
-				# updating output weights
-				self.W_out += self.lr * np.outer(error, spk)
-			
+				self.W_out += self.lr * np.outer(error, self.spk)
 
 			error_list.append(total_error / length)
 			
@@ -158,7 +165,7 @@ mem_pot = 0
 spectral_radius = 0.8008810010820975
 lr = 0.05359473671289511
 error = []
-
+accuracy_list = []
 
 
 inputs, labels = create_dataset()
@@ -173,6 +180,13 @@ train_labels, test_labels = labels[:800], labels[800:]
 
 
 
+
+
+
+
+
+
+
 #train
 error = res.train_output(train_inputs, train_labels, error)
 
@@ -181,7 +195,7 @@ correct = 0
 
 for i in range(len(test_inputs)):
 	spk = res.update(test_inputs[i])
-	output = res.predict(spk)
+	output = res.predict()
 	if output > 0.5:
 		prediction = 1
 	else:
@@ -203,7 +217,7 @@ print(f"Accuracy: {accuracy* 100:.2f}")
 
 # Plot training error over epochs
 plt.figure(figsize=(5, 5))
-plt.plot(error, label="Training Loss", linestyle='-', marker='o')
+plt.plot(error, label="Training Loss") #, linestyle='-', marker='o')
 plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.title("Training Loss Over Time")
