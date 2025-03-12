@@ -40,17 +40,16 @@ def create_dataset():
 
 
 class Reservior:
-	def __init__(self, input_neurons,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus, stdp_lr):
+	def __init__(self, input_neurons,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus):
 		self.input_neurons = input_neurons # number of input neurons
 		self.res_size = res_size # reservior size
 		self.threshold = threshold # treshold
 		self.beta = beta # leak rate
 		self.mem_pot = mem_pot # inital membrane potential
 		self.spectral_radius = spectral_radius
-		self.lr = lr # leanring rate
-		
+		self.lr = lr
+
 		# STDP variables
-		self.stdp_lr = stdp_lr # stdp learning rate
 		self.A_plus = A_plus # LTP
 		self.A_minus = A_minus # LTD
 		self.T_plus = T_plus # LTP
@@ -115,7 +114,7 @@ class Reservior:
 	
 	# train the output layer
 	def train_output(self, inputs, labels, error_list):
-		epochs =  100
+		epochs =  150
 		error_list = []
 
 		for epoch in range(epochs):
@@ -151,26 +150,35 @@ Best Parameters: {'res_size': 669, 'threshold': 1.2455829862297048, 'beta': 0.83
 Best Accuracy: 0.805
 '''
 
+
+'''
+Best is trial 44 with value: 0.88.
+Best Parameters: {'res_size': 555, 'threshold': 1.756225049143497, 'beta': 0.9093417385101635, 'spectral_radius': 1.4557156621825478, 'lr': 0.008205985657245275, 'A_plus': 0.2968296602795653, 'A_minus': 0.328861813551042, 'T_plus': 16.27242424863669, 'T_minus': 9.710864724717801}
+Best Accuracy: 0.88
+'''
+
+
+
 # initalize reserverior
 input_size = 5*5
-res_size = 669
-threshold = 1.2455829862297048
-beta = 0.8344897387753338
+res_size = 555
+threshold = 1.756225049143497
+beta = 0.9093417385101635
 mem_pot = 0 
-spectral_radius = 0.8960878996969639
-lr = 0.0011192398817055941
-A_plus = 0.19128149966298552
-A_minus = 0.010955583093427243
-T_plus = 12.384842002150416
-T_minus = 16.30839758879683
-stdp_lr = 0.01
+spectral_radius = 1.4557156621825478
+lr = 0.008205985657245275
+A_plus = 0.2968296602795653
+A_minus = 0.328861813551042
+T_plus = 16.27242424863669
+T_minus = 9.710864724717801
 error = []
 accuracy_list = []
 
 
 inputs, labels = create_dataset()
  
-res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus, stdp_lr)
+
+res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus)
 
 
 #splitting data 800 (80%) for train 200 (20%) for test
@@ -210,6 +218,7 @@ print(f"Total Time: {end - start}")
 
 
 '''
+
 #using optuna to find best parameters
 def objective(trial):
 	res_size = trial.suggest_int("res_size", 500, 800)
@@ -224,9 +233,9 @@ def objective(trial):
 	error = []
 	
 
-	inputs, labels = create_dataset()
+#	inputs, labels = create_dataset()
  
-	res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus, stdp_lr)
+	res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, lr, A_plus, A_minus, T_plus, T_minus)
 
 
 #splitting data 800 (80%) for train 200 (20%) for test
@@ -244,7 +253,7 @@ def objective(trial):
 	correct = 0
 
 	for i in range(len(test_inputs)):
-		spk = res.update(test_inputs[i])
+		spk = res.update(test_inputs[i], i)
 		output = res.predict()
 		if output > 0.5:
 			prediction = 1
