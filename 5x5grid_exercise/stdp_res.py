@@ -86,7 +86,7 @@ class Reservior:
 	
 		
 		# updating weights with stdp every 5 timesteps 
-		if current_t % 5 == 0:	
+		if current_t % 50 == 0:	
 			for i in range(self.res_size):
 				if new_spk[i]: # post syn spike
 					for j in range(self.res_size):
@@ -114,7 +114,7 @@ class Reservior:
 	
 	# train the output layer
 	def train_output(self, inputs, labels, error_list):
-		epochs =  150
+		epochs = 150
 		error_list = []
 
 		for epoch in range(epochs):

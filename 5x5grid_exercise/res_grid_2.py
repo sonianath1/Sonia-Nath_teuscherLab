@@ -7,6 +7,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import optuna
+import time
 
 def create_dataset():
 
@@ -116,7 +117,7 @@ class Reservior:
 			
 
 	def train_output(self, inputs, labels, error_list):
-		epochs = 100
+		epochs = 20
 		error_list = []
 
 		for epoch in range(epochs):
@@ -167,6 +168,8 @@ lr = 0.05359473671289511
 error = []
 accuracy_list = []
 
+print("Lets go!")
+start = time.time()
 
 inputs, labels = create_dataset()
  
@@ -176,15 +179,6 @@ res = Reservior(input_size,res_size, threshold, beta, mem_pot, spectral_radius, 
 #splitting data 800 (80%) for train 200 (20%) for test
 train_inputs, test_inputs = inputs[:800], inputs[800:]
 train_labels, test_labels = labels[:800], labels[800:]
-
-
-
-
-
-
-
-
-
 
 
 #train
@@ -208,6 +202,10 @@ for i in range(len(test_inputs)):
 
 accuracy = correct / len(test_inputs)
 print(f"Accuracy: {accuracy* 100:.2f}")
+
+end = time.time()
+print("All done!")
+print(f"Total time: {end - start}")
 
 #study = optuna.create_study(direction="maximize")  # We negate accuracy, so we minimize
 #study.optimize(objective, n_trials=50)
